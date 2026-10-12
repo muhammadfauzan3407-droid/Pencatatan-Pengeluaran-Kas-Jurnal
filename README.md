@@ -4,11 +4,10 @@
 |---|---|
 | Nama | Muhammad Fauzan Jamil |
 | NIM | 12030124130082 |
-| Program Studi | S1 Akuntansi, Fakultas Ekonomika dan Bisnis, Universitas Diponegoro |
-| Mata Kuliah | Pemrograman / Coding |
+| Kelas | D |
+| Mata Kuliah | Pengkodean & Pemrograman |
 | Dosen Pengampu | Totok Dewayanto |
-| Ujian | Latihan Tengah Semester Gasal TA 2026/2027, Senin 19 Oktober 2026 (120 menit) |
-| Sifat | Open Book / Open AI / Open Code Sandbox |
+
 
 Repositori ini berisi seluruh artefak jawaban: skema dan skrip SQL (PostgreSQL), purwarupa web voucher kas keluar, log penggunaan AI, dan bukti hasil pengujian. Jawaban tertulis ada di berkas PDF lembar jawaban.
 
