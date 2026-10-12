@@ -1,4 +1,4 @@
-# UTS Pemrograman / Coding Akuntansi: Modul General Ledger, Persediaan Perpetual, dan Voucher Kas Keluar
+# UTS Pengkodean & Pemrograman: Modul General Ledger, Persediaan Perpetual, dan Voucher Kas Keluar
 
 | | |
 |---|---|
