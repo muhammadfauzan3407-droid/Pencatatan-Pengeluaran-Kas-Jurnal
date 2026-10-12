@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang='id'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>Voucher Kas Keluar</title>
+  <script src='https://cdn.tailwindcss.com'></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <script src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    .num { font-variant-numeric: tabular-nums; }
+    @keyframes pop { 0% { transform: scale(.6); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
+    .pop { animation: pop .35s ease-out both; }
+    @keyframes slidein { from { transform: translateY(-12px); opacity: 0 } to { transform: none; opacity: 1 } }
+    .slidein { animation: slidein .25s ease-out both; }
+  </style>
+</head>
+<body class='min-h-screen bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100'>
+
+<!-- ===== KONFIGURASI SUPABASE (ganti dua baris ini saja) ===== -->
+<script>
+  const SUPABASE_URL = 'https://ltizwsnykbbtscyqcwwn.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_w6ewHZe_ET3WmD69_R1RRQ_I-L-CYL_';   // publishable / anon key, JANGAN service_role
+</script>
+
+<!-- HERO -->
+<header class='bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white'>
+  <div class='max-w-5xl mx-auto px-5 pt-8 pb-24'>
+    <div class='flex items-start justify-between gap-4'>
+      <div>
+        <p class='text-xs uppercase tracking-widest text-indigo-100/90'>Buku Besar · Entri Jurnal</p>
+        <h1 class='mt-1 text-3xl md:text-4xl font-extrabold tracking-tight'>Voucher Kas Keluar</h1>
+        <p class='mt-2 text-indigo-100 text-sm max-w-xl'>Setiap transaksi harus seimbang: total debit sama dengan total kredit, dan kas hanya berkurang lewat kredit.</p>
+      </div>
+      <div class='flex flex-col items-end gap-2'>
+        <button id='themeBtn' type='button' class='rounded-full bg-white/15 hover:bg-white/25 px-3 py-1.5 text-sm backdrop-blur' aria-label='Ganti tema'>🌙 Tema</button>
+        <span id='connBadge' class='rounded-full px-3 py-1 text-xs font-semibold bg-white/15'></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class='max-w-5xl mx-auto px-5 -mt-16 pb-16 grid lg:grid-cols-[1fr_320px] gap-6 items-start'>
+
+  <!-- KARTU FORM -->
+  <section id='formCard' class='rounded-3xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-black/5 dark:ring-white/10 p-6 md:p-8 space-y-7'>
+
+    <div>
+      <h2 class='text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400'>1 · Data Bukti</h2>
+      <div class='mt-3 grid md:grid-cols-3 gap-4'>
+        <label class='block text-sm font-medium'>Tanggal
+          <input id='trxDate' type='date' class='mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500'>
+        </label>
+        <label class='block text-sm font-medium'>No. Bukti
+          <div class='mt-1 flex gap-2'>
+            <input id='refNo' class='w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500'>
+            <button id='newRef' type='button' title='Buat nomor baru' class='rounded-xl border border-slate-300 dark:border-slate-700 px-3 hover:bg-slate-50 dark:hover:bg-slate-800'>↻</button>
+          </div>
+        </label>
+        <label class='block text-sm font-medium'>Deskripsi
+          <input id='desc' placeholder='mis. Bayar listrik Oktober' class='mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500'>
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <div class='flex items-center justify-between'>
+        <h2 class='text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400'>2 · Baris Jurnal</h2>
+        <div class='flex gap-2'>
+          <button id='balanceBtn' type='button' class='rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 px-3 py-1.5 text-xs font-semibold'>⚖ Seimbangkan ke Kas</button>
+          <button id='addLine' type='button' class='rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold'>＋ Baris</button>
+        </div>
+      </div>
+      <div class='mt-3 hidden md:grid grid-cols-[1fr_150px_150px_36px] gap-3 px-1 text-xs font-semibold text-slate-500 dark:text-slate-400'>
+        <span>Akun</span><span class='text-right'>Debit (Rp)</span><span class='text-right'>Kredit (Rp)</span><span></span>
+      </div>
+      <div id='lines' class='mt-2 space-y-3'></div>
+    </div>
+
+    <div class='flex flex-wrap items-center gap-3 pt-2'>
+      <button id='submit' type='button' disabled
+        class='inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 shadow-lg shadow-indigo-600/30 transition disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed'>
+        <svg id='spin' class='hidden animate-spin h-4 w-4' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='10' stroke='currentColor' stroke-width='4' class='opacity-25'/><path d='M4 12a8 8 0 018-8' stroke='currentColor' stroke-width='4' stroke-linecap='round'/></svg>
+        <span id='submitLabel'>Posting Voucher</span>
+      </button>
+      <span id='hint' class='text-sm text-slate-500 dark:text-slate-400'></span>
+    </div>
+    <div id='err' class='hidden slidein rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 px-4 py-3 text-sm'></div>
+  </section>
+
+  <!-- KARTU SUKSES -->
+  <section id='doneCard' class='hidden lg:col-span-1 rounded-3xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-black/5 dark:ring-white/10 p-10 text-center'>
+    <div class='pop mx-auto h-20 w-20 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 grid place-items-center text-4xl'>✓</div>
+    <h2 class='mt-5 text-2xl font-extrabold'>Voucher berhasil diposting</h2>
+    <p class='mt-2 text-slate-500 dark:text-slate-400'>ID jurnal <span id='doneId' class='font-bold text-slate-800 dark:text-slate-100 num'></span> · No. bukti <span id='doneRef' class='font-bold text-slate-800 dark:text-slate-100'></span></p>
+    <p class='mt-1 text-sm text-slate-500 dark:text-slate-400'>Jurnal dikunci (immutable) dan disegel dengan hash checksum.</p>
+    <button id='againBtn' type='button' class='mt-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3'>Buat voucher baru</button>
+  </section>
+
+  <!-- PANEL RINGKASAN -->
+  <aside class='lg:sticky lg:top-6 rounded-3xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-black/5 dark:ring-white/10 p-6 space-y-5'>
+    <h2 class='text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400'>Ringkasan Keseimbangan</h2>
+
+    <div id='statusPill' role='status' aria-live='polite' class='rounded-2xl px-4 py-3 text-center font-extrabold tracking-wide'></div>
+
+    <dl class='space-y-3 text-sm'>
+      <div class='flex justify-between'><dt class='text-slate-500 dark:text-slate-400'>Total Debit</dt><dd id='tDebit' class='font-bold num'></dd></div>
+      <div class='flex justify-between'><dt class='text-slate-500 dark:text-slate-400'>Total Kredit</dt><dd id='tCredit' class='font-bold num'></dd></div>
+      <div class='h-px bg-slate-200 dark:bg-slate-700'></div>
+      <div class='flex justify-between'><dt class='text-slate-500 dark:text-slate-400'>Selisih</dt><dd id='tDiff' class='font-extrabold num'></dd></div>
+    </dl>
+
+    <div>
+      <div class='h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden'><div id='meter' class='h-full rounded-full transition-all duration-300'></div></div>
+      <p id='meterTxt' class='mt-1 text-xs text-slate-500 dark:text-slate-400'></p>
+    </div>
+
+    <div>
+      <h3 class='text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2'>Syarat posting</h3>
+      <ul id='rules' class='space-y-2 text-sm'></ul>
+    </div>
+  </aside>
+</main>
+
+<script>
+/* ============ DATA AKUN (ID harus sama dengan tabel chart_of_accounts) ============ */
+const ACCOUNTS = [
+  { id: 1, code: '1-1100', name: 'Kas',                          cash: true,  group: 'Kas & Bank' },
+  { id: 2, code: '1-1200', name: 'Bank',                         cash: true,  group: 'Kas & Bank' },
+  { id: 3, code: '1-1300', name: 'Persediaan Barang Dagang',     cash: false, group: 'Aset Lain' },
+  { id: 4, code: '2-1100', name: 'Utang Usaha',                  cash: false, group: 'Liabilitas' },
+  { id: 5, code: '5-1100', name: 'Beban Pokok Pendapatan (HPP)', cash: false, group: 'Beban' },
+  { id: 6, code: '5-2100', name: 'Beban Listrik',                cash: false, group: 'Beban' },
+  { id: 7, code: '5-2200', name: 'Beban Gaji',                   cash: false, group: 'Beban' },
+  { id: 8, code: '5-9100', name: 'Selisih Persediaan',           cash: false, group: 'Beban' }
+];
+const KAS_ID = 1;
+
+const configured = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_KEY.includes('YOUR-ANON-KEY');
+const sb = configured ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+const $ = id => document.getElementById(id);
+const toCents = v => Math.round((parseFloat(v) || 0) * 100);
+const idr = c => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 2 }).format(c / 100);
+const acc = id => ACCOUNTS.find(a => a.id === id);
+const inputCls = 'w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+
+/* ---------- badge koneksi & tema ---------- */
+$('connBadge').textContent = configured ? '● Terhubung ke Supabase' : '● Mode demo (belum terhubung)';
+$('connBadge').className = 'rounded-full px-3 py-1 text-xs font-semibold ' + (configured ? 'bg-emerald-400/25 text-emerald-50' : 'bg-amber-300/30 text-amber-50');
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+$('themeBtn').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+
+/* ---------- nomor bukti unik ---------- */
+function newRefNo() {
+  const d = new Date();
+  return `KK-${d.getFullYear()}-${String(Date.now()).slice(-6)}`;
+}
+
+/* ---------- baris jurnal ---------- */
+function addLine(accountId = '', debit = '', credit = '') {
+  const row = document.createElement('div');
+  row.className = 'line slidein grid grid-cols-1 md:grid-cols-[1fr_150px_150px_36px] gap-3 items-center rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-3 ring-1 ring-transparent';
+
+  const sel = document.createElement('select');
+  sel.className = 'acc ' + inputCls;
+  sel.setAttribute('aria-label', 'Akun');
+  const ph = document.createElement('option'); ph.value = ''; ph.textContent = '— pilih akun —'; sel.appendChild(ph);
+  [...new Set(ACCOUNTS.map(a => a.group))].forEach(g => {
+    const og = document.createElement('optgroup'); og.label = g;
+    ACCOUNTS.filter(a => a.group === g).forEach(a => {
+      const o = document.createElement('option'); o.value = a.id; o.textContent = `${a.code} · ${a.name}`; og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+  sel.value = accountId;
+
+  const mk = (cls, label, val) => {
+    const input = document.createElement('input');
+    input.type = 'number'; input.min = '0'; input.step = '0.01'; input.inputMode = 'decimal';
+    input.placeholder = label; input.value = val;
+    input.className = cls + ' num text-right ' + inputCls;
+    input.setAttribute('aria-label', label);
+    return input;
+  };
+  const dr = mk('dr', 'Debit', debit);
+  const cr = mk('cr', 'Kredit', credit);
+
+  const rm = document.createElement('button');
+  rm.type = 'button'; rm.className = 'rm h-9 w-9 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-lg';
+  rm.setAttribute('aria-label', 'Hapus baris'); rm.textContent = '✕';
+
+  row.append(sel, dr, cr, rm);
+  $('lines').appendChild(row);
+  recalc();
+}
+
+function readRows() {
+  return [...document.querySelectorAll('#lines .line')].map(row => ({
+    el: row,
+    account_id: Number(row.querySelector('.acc').value) || null,
+    debit: toCents(row.querySelector('.dr').value),
+    credit: toCents(row.querySelector('.cr').value)
+  }));
+}
+
+/* ---------- logika utama ---------- */
+function recalc() {
+  const rows = readRows();
+  const td = rows.reduce((s, r) => s + r.debit, 0);
+  const tc = rows.reduce((s, r) => s + r.credit, 0);
+  const diff = td - tc;
+  const isCash = id => (acc(id) || {}).cash;
+
+  const filled = rows.filter(r => r.account_id && (r.debit > 0 || r.credit > 0));
+  const linesOk = rows.length >= 2 && filled.length === rows.length && rows.every(r => (r.debit > 0) !== (r.credit > 0));
+  const balanced = diff === 0 && td > 0;
+  const cashCredit = rows.some(r => r.credit > 0 && isCash(r.account_id));
+  const cashDebit = rows.some(r => r.debit > 0 && isCash(r.account_id));
+  const headerOk = $('trxDate').value !== '' && $('refNo').value.trim() !== '' && $('desc').value.trim() !== '';
+  const valid = linesOk && balanced && cashCredit && !cashDebit && headerOk;
+
+  // tanda merah pada baris yang mengisi dua sisi atau mendebit kas
+  rows.forEach(r => {
+    const bad = (r.debit > 0 && r.credit > 0) || (r.debit > 0 && isCash(r.account_id));
+    r.el.classList.toggle('ring-rose-400', bad);
+    r.el.classList.toggle('ring-transparent', !bad);
+  });
+
+  $('tDebit').textContent = idr(td);
+  $('tCredit').textContent = idr(tc);
+  $('tDiff').textContent = idr(Math.abs(diff));
+  $('tDiff').className = 'font-extrabold num ' + (diff === 0 && td > 0 ? 'text-emerald-600' : 'text-rose-600');
+
+  const pill = $('statusPill');
+  pill.textContent = balanced ? 'SEIMBANG ✔' : 'BELUM SEIMBANG';
+  pill.className = 'rounded-2xl px-4 py-3 text-center font-extrabold tracking-wide ' +
+    (balanced ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+              : 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300');
+
+  const big = Math.max(td, tc);
+  const pct = big === 0 ? 0 : Math.round((Math.min(td, tc) / big) * 100);
+  $('meter').style.width = pct + '%';
+  $('meter').className = 'h-full rounded-full transition-all duration-300 ' + (balanced ? 'bg-emerald-500' : 'bg-amber-500');
+  $('meterTxt').textContent = big === 0 ? 'Isi nominal untuk melihat keseimbangan' : `Kesesuaian debit–kredit: ${pct}%`;
+
+  const rules = [
+    [linesOk, 'Minimal 2 baris, akun dipilih, satu sisi terisi'],
+    [balanced, 'Total debit = total kredit (> 0)'],
+    [cashCredit, 'Ada kredit ke akun Kas / Bank'],
+    [!cashDebit, 'Tidak ada debit ke akun Kas / Bank'],
+    [headerOk, 'Tanggal, no. bukti, deskripsi terisi']
+  ];
+  $('rules').innerHTML = '';
+  rules.forEach(([ok, text]) => {
+    const li = document.createElement('li');
+    li.className = 'flex items-start gap-2 ' + (ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400');
+    const mark = document.createElement('span');
+    mark.className = 'mt-0.5 grid place-items-center h-5 w-5 shrink-0 rounded-full text-xs font-bold ' + (ok ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500');
+    mark.textContent = ok ? '✓' : '·';
+    const span = document.createElement('span'); span.textContent = text;
+    li.append(mark, span); $('rules').appendChild(li);
+  });
+
+  $('submit').disabled = !valid || $('submit').dataset.busy === '1';
+  $('hint').textContent = valid ? 'Semua syarat terpenuhi — siap diposting.' : 'Lengkapi syarat di panel kanan untuk mengaktifkan tombol.';
+  return { rows, valid, td, tc };
+}
+
+/* ---------- seimbangkan otomatis: kredit ke Kas ---------- */
+$('balanceBtn').addEventListener('click', () => {
+  const rows = readRows();
+  const td = rows.reduce((s, r) => s + r.debit, 0);
+  const otherCredit = rows.filter(r => r.account_id !== KAS_ID).reduce((s, r) => s + r.credit, 0);
+  const need = td - otherCredit;
+  if (need <= 0) return;
+  let kas = rows.find(r => r.account_id === KAS_ID);
+  if (!kas) { addLine(KAS_ID, '', ''); kas = readRows().pop(); }
+  kas.el.querySelector('.dr').value = '';
+  kas.el.querySelector('.cr').value = (need / 100).toFixed(2);
+  recalc();
+});
+
+/* ---------- event ---------- */
+$('lines').addEventListener('input', e => {
+  const row = e.target.closest('.line');
+  if (!row) return;
+  if (e.target.classList.contains('dr') && toCents(e.target.value) > 0) row.querySelector('.cr').value = '';
+  if (e.target.classList.contains('cr') && toCents(e.target.value) > 0) row.querySelector('.dr').value = '';
+  recalc();
+});
+$('lines').addEventListener('change', recalc);
+$('lines').addEventListener('click', e => {
+  if (e.target.classList.contains('rm')) { e.target.closest('.line').remove(); recalc(); }
+});
+['trxDate', 'refNo', 'desc'].forEach(id => $(id).addEventListener('input', recalc));
+$('addLine').addEventListener('click', () => addLine());
+$('newRef').addEventListener('click', () => { $('refNo').value = newRefNo(); recalc(); });
+
+function showError(msg) { const b = $('err'); b.textContent = msg; b.classList.remove('hidden'); }
+function hideError() { $('err').classList.add('hidden'); }
+
+function resetForm() {
+  $('lines').innerHTML = '';
+  $('trxDate').value = new Date().toISOString().slice(0, 10);
+  $('refNo').value = newRefNo();
+  $('desc').value = '';
+  addLine(); addLine();
+  hideError();
+  $('doneCard').classList.add('hidden');
+  $('formCard').classList.remove('hidden');
+  recalc();
+}
+$('againBtn').addEventListener('click', resetForm);
+
+/* ---------- submit ke Supabase RPC ---------- */
+$('submit').addEventListener('click', async () => {
+  const { rows, valid } = recalc();
+  if (!valid) return;
+  hideError();
+  if (!sb) { showError('Mode demo: isi SUPABASE_URL dan SUPABASE_KEY di bagian atas file agar voucher bisa dikirim.'); return; }
+
+  const btn = $('submit');
+  btn.dataset.busy = '1'; btn.disabled = true;
+  $('spin').classList.remove('hidden'); $('submitLabel').textContent = 'Memposting...';
+
+  const ref = $('refNo').value.trim();
+  const { data, error } = await sb.rpc('post_cash_out_voucher', {
+    p_trx_date: $('trxDate').value,
+    p_reference_no: ref,
+    p_description: $('desc').value.trim(),
+    p_lines: rows.map(r => ({ account_id: r.account_id, debit: r.debit / 100, credit: r.credit / 100 }))
+  });
+
+  btn.dataset.busy = '0';
+  $('spin').classList.add('hidden'); $('submitLabel').textContent = 'Posting Voucher';
+
+  if (error) {
+    showError('Gagal: ' + error.message);
+    recalc();
+    return;
+  }
+  $('doneId').textContent = '#' + data;
+  $('doneRef').textContent = ref;
+  $('formCard').classList.add('hidden');
+  $('doneCard').classList.remove('hidden');
+});
+
+resetForm();
+</script>
+</body>
+</html>
