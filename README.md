@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Nama | Zan |
+| Nama | Muhammad Fauzan Jamil |
 | NIM | 12030124130082 |
 | Program Studi | S1 Akuntansi, Fakultas Ekonomika dan Bisnis, Universitas Diponegoro |
 | Mata Kuliah | Pemrograman / Coding |
