@@ -102,7 +102,7 @@ Seluruh skrip dijalankan berurutan pada database kosong. Screenshot ada di `bukt
 
 ## Penggunaan alat AI
 
-Latihan ini bersifat *Open AI*. Alat yang dipakai:
+Ujian ini bersifat *Open AI*. Alat yang dipakai:
 - **Gemini Canvas**: menyusun formulir voucher dinamis. Prompt dan hasil ada di [`ai-log/prompt_gemini_canvas.md`](ai-log/prompt_gemini_canvas.md), screenshot di `bukti-screenshot/ai_gemini_*.png`.
 - **NotebookLM**: menguji kesesuaian aturan bisnis dengan PSAK 2 dan PSAK 1. Screenshot di `bukti-screenshot/ai_notebooklm_*.png`.
 
